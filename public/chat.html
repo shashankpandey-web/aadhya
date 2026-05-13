@@ -1,0 +1,63 @@
+<!doctype html>  
+<html lang="en">  
+    <head>
+    </head>
+    <body>
+        <h1>Hello World!</h1>
+        <div id="future"></div>
+        <form id="form" id="chat_form">
+            <input id="chat_input" type="text">
+            <input type="submit" value="Send">
+        </form>
+         <script src="/jquery/dist/jquery.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>  
+            /*var chat_input = $("#chat_input").val();
+             var socket = io.connect('http://85.214.235.114:50013');
+             socket.on('connect', function(data) {
+                socket.emit('join', 'Hello World from client f'+chat_input);
+             });*/
+
+             //var c = io.connect('http://85.214.235.114:50013', { query: "foo=bar" });
+             var socket = io.connect('https://aadya.infosparkles.com:50008');
+socket.on('connect', function(data) {
+socket.emit('join', '18');
+});
+socket.on('broad', function(data) {
+    $('#future').append(data+ "<br/>");
+    console.log("T");
+    msgsave(data);
+});
+
+/*socket.on('broad1', function(data) {
+    $('#future').append(data+ "<br/>");
+});*/
+
+$('form').submit(function(e){
+e.preventDefault();
+var message = $('#chat_input').val();
+var data = {
+        userid: 109,
+        to: 110,
+        message: message,
+        type: 0,
+    }; 
+socket.emit('messages', data);
+});
+
+
+function msgsave(msg){
+   /* data = {'msg' : msg};
+    $.ajax({
+      type: "POST",
+      url: "msgsave.php",
+      data: data,
+      success: function(data){
+         console.log("test");
+      }
+    });*/
+}
+
+        </script>
+    </body>
+</html>

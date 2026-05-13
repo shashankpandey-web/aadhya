@@ -1,0 +1,415 @@
+const express = require("express");
+const http = require("http");
+const socketio = require("socket.io");
+const app = express();
+const server = http.createServer(app);
+const io = socketio(server);
+const db = require('./config/db.config.js');
+
+const fs = require("fs");
+const multer = require("multer");
+const { exec } = require("child_process");
+const { getVideoDurationInSeconds } = require("get-video-duration");
+
+
+var base_url = "https://aadya.infosparkles.com/";
+
+const UPLOADROOT = "/projects/aadya.infosparkles.com/public/uploads/";
+
+
+const port = 5003;
+app.get("/", function (req, res, next) {
+    res.sendFile(__dirname + "/index.html");
+});
+
+
+server.listen(port, () => {
+    console.log(`Server is up on port ${port}!`,);
+});
+
+
+var onlineusers = {};
+io.on("connection", function (client) {
+    console.log("Client connected..." + client.id);
+
+
+
+    
+    client.on("join", function (data) {
+        // console.log("data client", data);
+        onlineusers[data] = client.id;
+    });
+
+    client.on("messages", function (data) {
+
+
+            console.log('messages',data);
+
+
+        //  ts = Date.now();
+        // var filename = ts+'.png';
+        // var path = UPLOADROOT+'chat/'+filename
+        // var imgdata = data.message;
+        // var base64Data = imgdata.replace(/^data:([A-Za-z-+/]+);base64,/, '');
+        // fs.writeFileSync(path, base64Data,  {encoding: 'base64'});
+        
+        // console.log("data",data)
+        // savedb(data, function (result) {
+        //     if (result) {
+        //         io.to(client.id).emit("broad", result);
+        //         console.log("result", result);
+
+        //         if (result["chat_type"] == "group") {
+        //             var selectSql =
+        //                 "SELECT * FROM nob_chat_group_members WHERE group_id=" +
+        //                 result["to"];
+        //             var whereSql = {};
+        //             var getMembers = db.query(
+        //                 selectSql,
+        //                 whereSql,
+        //                 function (err2, result2) {
+        //                     if (err2) {
+        //                         return err2;
+        //                     }
+        //                     if (result2) {
+
+        //                         var datamsgnew = {
+        //                             chatID: result.chatID,
+        //                             userid: result.userid,
+        //                             to: result.to,
+        //                             message: result.message,
+        //                             Groupid: result.Groupid,
+        //                             type: result.type,
+        //                             thumbnail: result.thumbnail,
+        //                             duration: result.duration,
+        //                             CreatedDateTime: result.CreatedDateTime,
+        //                             chat_type: result.chat_type,
+        //                             time: result.time,
+        //                         };
+        //                         datamsgnew.customer_from_image =
+        //                             base_url + "assets/img/user.png";
+        //                         datamsgnew.customer_from_name = "";
+
+        //                         var sql =
+        //                             "SELECT * FROM nob_customers WHERE id=" +
+        //                             result.userid +
+        //                             " and status='Active' limit 1";
+        //                         var sqldata = {};
+        //                         db.query(sql, function (err, userresult) {
+        //                             if (err) {
+        //                                 return err;
+        //                             }
+
+        //                             if (userresult) {
+        //                                 if (userresult[0]) {
+        //                                     if (
+        //                                         userresult[0].full_name != undefined &&
+        //                                         userresult[0].full_name != ""
+        //                                     ) {
+        //                                         datamsgnew.customer_from_name = userresult[0].full_name;
+        //                                     }
+        //                                     if (
+        //                                         userresult[0].image != undefined &&
+        //                                         userresult[0].image != ""
+        //                                     ) {
+        //                                         datamsgnew.customer_from_image =
+        //                                             base_url + "uploads/customers/" + userresult[0].image;
+        //                                     }
+        //                                     result2.map((element, index) => {
+
+        //                                         var storedata = {
+        //                                             group_id: result.to,
+        //                                             chats_id: result.chatID,
+        //                                             userid: result.userid,
+        //                                             to: element.to_user_id,
+        //                                             seen: 0,
+        //                                             CreatedDateTime: result.CreatedDateTime,
+        //                                         };
+        //                                         if (result.userid == element.to_user_id) {
+        //                                             storedata.seen = 1;
+        //                                         }
+
+        //                                         var query = db.query(
+        //                                             "INSERT INTO nob_chat_group_chats SET ?",
+        //                                             storedata,
+        //                                             function (err3, result4) {
+        //                                                 console.log(err3);
+        //                                                 if (result4) {
+        //                                                     io.to(onlineusers[element.to_user_id]).emit(
+        //                                                         "broad",
+        //                                                         datamsgnew
+        //                                                     );
+        //                                                 }
+        //                                             }
+        //                                         );
+        //                                     });
+        //                                 }
+        //                             }
+        //                         });
+        //                     }
+        //                 }
+        //             );
+        //         } else {
+        //             io.to(client.id).emit("broad", result);
+        //             io.to(onlineusers[result.to]).emit("broad", result);
+        //         }
+        //     }
+        // });
+        savedb(data, function(result){
+            console.log("onlineusers",onlineusers)
+            // resultmsg = JSON.stringify(result)
+            io.to(client.id).emit("broad", result);
+            io.to(onlineusers[result.to]).emit("broad", result);
+            
+        });
+    });
+
+    client.on("disconnect", function (data) {
+        delete onlineusers[data];
+    });
+
+
+
+    
+});
+
+function savedb(datamsg,callback){
+
+
+
+    
+    
+    if (datamsg.userid > datamsg.to){
+       var Groupid = datamsg.to+"_"+datamsg.userid;
+    }else{
+        var Groupid = datamsg.userid+"_"+datamsg.to;
+    }   
+
+    ts = Date.now();
+    if(datamsg.type=='3'){
+        var filename = ts+'.mov';
+        var imagename = ts+'.png';
+        var path = UPLOADROOT+'chat/'+filename
+        var imgdata = datamsg.message;
+        var base64Data = imgdata.replace(/^data:([A-Za-z-+/]+);base64,/, '');
+        fs.writeFileSync(path, base64Data,  {encoding: 'base64'});
+
+        videothumbnail(filename,imagename);
+
+        var message = filename;
+        var message_path = base_url+'uploads/chat/'+filename;
+        var thumbnail = base_url+'uploads/chat/thumbnail/'+imagename;
+        var getduration = '';
+
+        var data = {
+            userid: datamsg.userid,
+            to: datamsg.to,
+            message: message,
+            Groupid: Groupid,
+            type: datamsg.type,
+            order_id: datamsg?.order_id,
+            duration: getduration,
+            CreatedDateTime: Math.floor(ts/1000),
+        }; 
+        
+        var query = db.query('INSERT INTO aa_chats_2 SET ?', data, function(err,
+            result) {
+            //console.log(result);        
+            var insertId = result.insertId;
+            datamsgnew = {
+                chatID: insertId,
+                userid: datamsg.userid,
+                to: datamsg.to,
+                message: message_path,
+                Groupid: Groupid,
+                type: datamsg.type,
+                order_id: datamsg?.order_id,
+                thumbnail: thumbnail,
+                duration: getduration,
+                CreatedDateTime: Math.floor(ts/1000),
+            }; 
+            //console.log(datamsgnew);             
+            return callback(datamsgnew);
+        });
+    }else if(datamsg.type=='1'){
+        var filename = ts+'.png';
+        var path = UPLOADROOT+'chat/'+filename
+        var imgdata = datamsg.message;
+        var base64Data = imgdata.replace(/^data:([A-Za-z-+/]+);base64,/, '');
+        fs.writeFileSync(path, base64Data,  {encoding: 'base64'});
+
+        var message = filename;
+        var message_path = base_url+'uploads/chat/'+filename;
+        var getduration = '';
+        var thumbnail = '';
+
+        var data = {
+            userid: datamsg.userid,
+            to: datamsg.to,
+            message: message,
+            Groupid: Groupid,
+            type: datamsg.type,
+            order_id: datamsg?.order_id,
+            duration: getduration,
+            CreatedDateTime: Math.floor(ts/1000),
+        }; 
+        
+        var query = db.query('INSERT INTO aa_chats_2 SET ?', data, function(err,
+            result) {
+            //console.log(result);        
+            var insertId = result.insertId;
+            datamsgnew = {
+                chatID: insertId,
+                userid: datamsg.userid,
+                to: datamsg.to,
+                message: message_path,
+                Groupid: Groupid,
+                type: datamsg.type,
+                order_id: datamsg?.order_id,
+                thumbnail: thumbnail,
+                duration: getduration,
+                CreatedDateTime: Math.floor(ts/1000),
+            }; 
+            //console.log(datamsgnew);             
+            return callback(datamsgnew);
+        });
+    }else if(datamsg.type=='2'){
+        var getduration = '';
+        var thumbnail = '';
+        var filename = ts+'.m4a';
+        var path = UPLOADROOT+'chat/'+filename
+        var imgdata = datamsg.message;
+        var base64Data = imgdata.replace(/^data:([A-Za-z-+/]+);base64,/, '');
+        fs.writeFileSync(path, base64Data,  {encoding: 'base64'});
+
+        var message = filename;
+        var message_path = base_url+'uploads/chat/'+filename;
+        getVideoDurationInSeconds(message_path).then((duration) => {
+            
+            d = Number(duration);
+            var h = Math.floor(d / 3600);
+            var m = Math.floor(d % 3600 / 60);
+            var s = Math.floor(d % 3600 % 60);
+
+            var hDisplay = h > 0 ? (h > 9 ? h : "0"+h) + " : " : "";
+            var mDisplay = m > 0 ? (m > 9 ? m : "0"+m) + " : " : "00 : ";
+            var sDisplay = s > 0 ? (s > 9 ? s : "0"+s) : "00";
+
+            var getduration = hDisplay + mDisplay + sDisplay; 
+            var data = {
+                userid: datamsg.userid,
+                to: datamsg.to,
+                message: message,
+                Groupid: Groupid,
+                type: datamsg.type,
+                order_id: datamsg?.order_id,
+                duration: getduration,
+                CreatedDateTime: Math.floor(ts/1000),
+            }; 
+            
+            var query = db.query('INSERT INTO aa_chats_2 SET ?', data, function(err,
+                result) {
+                //console.log(result);        
+                var insertId = result.insertId;
+                datamsgnew = {
+                    chatID: insertId,
+                    userid: datamsg.userid,
+                    to: datamsg.to,
+                    message: message_path,
+                    Groupid: Groupid,
+                    type: datamsg.type,
+                    order_id: datamsg?.order_id,
+                    thumbnail: thumbnail,
+                    duration: getduration,
+                    CreatedDateTime: Math.floor(ts/1000),
+                }; 
+                //console.log(datamsgnew);                 
+                return callback(datamsgnew);                
+            });
+        });
+    }else{
+        var message      = datamsg.message;
+        var message_path = datamsg.message;
+        var getduration  = '';
+        var thumbnail    = '';
+        var data         = {
+            userid         : datamsg.userid,
+            to             : datamsg.to,
+            message        : message,
+            Groupid        : Groupid,
+            type           : datamsg.type,
+            order_id: datamsg?.order_id,
+            duration       : getduration,
+            CreatedDateTime: Math.floor(ts/1000),
+        }; 
+        
+        var query = db.query('INSERT INTO aa_chats_2 SET ?', data, function(err,
+            result) {       
+            var insertId = result.insertId;
+            datamsgnew = {
+                chatID: insertId,
+                userid: datamsg.userid,
+                to: datamsg.to,
+                message: message_path,
+                Groupid: Groupid,
+                type: datamsg.type,
+                order_id: datamsg?.order_id,
+                thumbnail: thumbnail,
+                duration: getduration,
+                CreatedDateTime: Math.floor(ts/1000),
+            }; 
+            console.log(datamsgnew);
+             
+            return callback(datamsgnew);
+        });
+    }         
+    
+}
+
+function secondsToHms(d) {
+    d = Number(d);
+    var h = Math.floor(d / 3600);
+    var m = Math.floor(d % 3600 / 60);
+    var s = Math.floor(d % 3600 % 60);
+
+    var hDisplay = h > 0 ? (h > 9 ? h : "0"+h) + " : " : "";
+    var mDisplay = m > 0 ? (m > 9 ? m : "0"+m) + " : " : "00 : ";
+    var sDisplay = s > 0 ? (s > 9 ? s : "0"+s) : "00";
+
+    return hDisplay + mDisplay + sDisplay; 
+}
+/*===================================================*/
+
+function videothumbnail(videoname,imagename){
+        var video =  UPLOADROOT+'chat/'+videoname;
+    var image =  UPLOADROOT+'chat/thumbnail/'+imagename;
+    var ffmpeg = '/usr/local/bin/ffmpeg';
+    var second = 1;
+    var thumbSize = '250x250';
+
+    var cmdreturn = ffmpeg+' -i '+video+' -deinterlace -an -ss '+second+' -t 00:00:01 -s '+thumbSize+' -r 1 -y -vcodec mjpeg -f mjpeg '+image+' 2>&1'
+
+    exec(cmdreturn, (error, stdout, stderr) => {
+        if (error) {
+            //console.log('error: {error.message}');
+            return;
+        }
+        if (stderr) {
+            //console.log('stderr: ${stderr}');
+            return;
+        }
+        //console.log('stdout: ${stdout}');
+    });
+}
+
+/*get Time String ===================================================*/
+function get_time_string(date) {
+    var hours = date.getHours();
+    var minutes = date.getMinutes();
+    var ampm = hours >= 12 ? "Pm" : "Am";
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    minutes = minutes < 10 ? "0" + minutes : minutes;
+    var strTime = hours + ":" + minutes + " " + ampm;
+    return strTime;
+}

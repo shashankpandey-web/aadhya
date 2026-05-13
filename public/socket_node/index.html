@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Socket.IO Chat</title>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+    }
+    #messages {
+      border: 1px solid #ccc;
+      padding: 10px;
+      width: 300px;
+      margin: 0 auto;
+      height: 200px;
+      overflow-y: auto;
+    }
+    #messageInput {
+      width: 200px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Socket.IO Chat</h1>
+  <div id="messages"></div>
+  <input id="messageInput" type="text" placeholder="Type a message" />
+  <button id="sendButton">Send</button>
+
+  <script>
+    const socket = io();
+
+    const messagesDiv = document.getElementById('messages');
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+
+    socket.on('connect', function(data) {
+      console.log('ffffffffffffffffff');
+        socket.emit('join', '1');
+    });
+
+    socket.on('broad', (data) => {
+        console.log("data",data)
+      const message = document.createElement('div');
+      message.textContent = data?.message;
+      messagesDiv.appendChild(message);
+    });
+
+    
+    sendButton.addEventListener('click', () => {
+      const message = messageInput.value;
+      const obj = {
+        message:message,
+        userid:1,
+        to:2,
+        type:0
+      }
+      if (message.trim()) {
+        socket.emit('messages', obj); 
+        messageInput.value = '';
+      }
+    });
+  </script>
+</body>
+</html>

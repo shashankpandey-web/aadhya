@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Socket.IO Chat Example</title>
+</head>
+<body>
+  <h1>Socket.IO Test</h1>
+
+  <input id="msg" type="text" placeholder="Type a message..." />
+  <button id="sendBtn">Send</button>
+
+  <ul id="messages"></ul>
+
+  <!-- jQuery (from CDN, easiest) -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <!-- Socket.IO client (served automatically by your Node.js server) -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <script>
+    // Connect to server
+    //const socket = io();
+    //const socket = io("https://aadya.infosparkles.com:5003");
+    const socket = io("https://aadya.infosparkles.com", {
+      transports: ["websocket"] // force WebSocket, avoids polling issues
+    });
+
+    // On connect
+    socket.on("connect", () => {
+      console.log("Connected with socket id:", socket.id);
+
+      // Example: join with username (hardcoded here)
+      socket.emit("join", "1");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected:", socket.id);
+    });
+
+    // Listen for broadcast messages
+    socket.on("broad", (data) => {
+      $("#messages").append(`<li>${JSON.stringify(data)}</li>`);
+    });
+
+    // Listen for online users
+    socket.on("online_users", (users) => {
+      console.log("Online users:", users);
+    });
+
+    let typingTimer;
+
+    $("#msg").on("input", () => {
+        socket.emit("typing", { from: '1', to: "2", isTyping: true });
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+            socket.emit("typing", { from: '1', to: "2", isTyping: false });
+        }, 1000);
+    });
+
+    // Send message
+    $("#sendBtn").click(() => {
+      const msg = $("#msg").val();
+      socket.emit("messages", {
+        from: "customer_123",
+        to: "customer_456",
+        message: msg,
+      });
+      $("#msg").val("");
+    });
+  </script>
+</body>
+</html>

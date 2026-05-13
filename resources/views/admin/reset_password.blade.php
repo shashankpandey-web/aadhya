@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+
+
+
+<html lang="en" class="light-style layout-wide  customizer-hide" dir="ltr" data-theme="theme-default"
+
+    data-template="vertical-menu-template-free">
+
+
+
+<head>
+
+    <meta charset="utf-8" />
+
+    <meta name="viewport"
+
+        content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+
+
+
+    <title>Reset Password | AADYA APP</title>
+
+    <!-- Favicon -->
+
+    <link rel="icon" type="image/x-icon"
+
+        href="{{ asset('assets/images/logo.png') }}" />
+
+
+
+    <!-- Fonts -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com/">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+
+    <link
+
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&amp;display=swap"
+
+        rel="stylesheet">
+
+
+
+
+
+    <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/boxicons.css')}}" />
+
+
+
+
+
+    <!-- Core CSS -->
+
+    <link rel="stylesheet" href="{{ asset('assets/vendor/css/core.css')}}" class="template-customizer-core-css" />
+
+    <link rel="stylesheet" href="{{ asset('assets/vendor/css/theme-default.css')}}" class="template-customizer-theme-css" />
+
+    <link rel="stylesheet" href="{{ asset('assets/css/demo.css')}}" />
+
+
+
+    <!-- Vendors CSS -->
+
+    <link rel="stylesheet" href="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css')}}" />
+
+
+
+
+
+    <!-- Page CSS -->
+
+    <!-- Page -->
+
+    <link rel="stylesheet" href="{{ asset('assets/vendor/css/pages/page-auth.css')}}">
+
+
+
+    <!-- Helpers -->
+
+    <script src="{{ asset('assets/vendor/js/helpers.js')}}"></script>
+
+    <script src="{{ asset('assets/js/config.js')}}"></script>
+
+
+
+</head>
+
+
+
+<body>
+
+
+
+    <!-- Content -->
+
+    <div class="container-xxl">
+
+        <div class="authentication-wrapper authentication-basic container-p-y">
+
+            <div class="authentication-inner">
+
+
+
+                <!-- Register Card -->
+
+                <div class="card">
+
+                    <div class="card-body">
+
+                        <!-- Logo -->
+
+                        <div class="app-brand justify-content-center">
+
+                            <a href="#" class="app-brand-link gap-2">
+
+                                <span class="app-brand-logo demo">
+
+                                    <img style="height: 40px;"
+
+                                        src="{{ asset('assets/images/logo.png') }}" />
+
+                                </span>
+
+                            </a>
+
+                        </div>
+
+                        <!-- /Logo -->
+
+                      
+
+                        <form id="formAuthentication" class="mb-3" method="post" action="{{ route('admin.reset_password', $user_id) }}" >
+
+                             @csrf
+
+                        
+
+                            <div class="mb-3 form-password-toggle">
+
+                                <label class="form-label" for="password">New Password</label>
+
+                                <div class="input-group input-group-merge">
+
+                                    <input type="password" id="password" class="form-control" name="new_password"
+
+                                        placeholder="&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;"
+
+                                        aria-describedby="password" />
+
+                                    <span class="input-group-text cursor-pointer"><i class="bx bx-hide"></i></span>
+
+                                </div>
+
+                                <div class="col-form-alert-label text-danger">
+
+                                    @if ($errors->has('new_password'))
+
+                                        {{ $errors->first('new_password') }}
+
+                                    @endif
+
+                                </div>   
+
+                            </div>
+
+                            <div class="mb-3 form-password-toggle">
+
+                                <label class="form-label" for="password">Confirm Password</label>
+
+                                <div class="input-group input-group-merge">
+
+                                    <input type="password" id="password" class="form-control" name="confirm_password"
+
+                                        placeholder="&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;"
+
+                                        aria-describedby="password" />
+
+                                    <span class="input-group-text cursor-pointer"><i class="bx bx-hide"></i></span>
+
+                                </div>
+
+                                <div class="col-form-alert-label text-danger">
+
+                                    @if ($errors->has('confirm_password'))
+
+                                        {{ $errors->first('confirm_password') }}
+
+                                    @endif
+
+                                </div>   
+
+                            </div>
+
+                            <button class="btn btn-primary d-grid w-100" type="submit"> Change Password </button>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+                <!-- Register Card -->
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="bs-toast toast toast-placement-ex m-2 bottom-0 start-0" role="alert" aria-live="assertive"
+
+        aria-atomic="true" data-bs-delay="2000">
+
+        <div class="toast-header">
+
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+
+        </div>
+
+        <div class="toast-body">
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+
+
+
+    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js')}}"></script>
+
+    <script src="{{ asset('assets/vendor/libs/popper/popper.js')}}"></script>
+
+    <script src="{{ asset('assets/vendor/js/bootstrap.js')}}"></script>
+
+    <script src="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js')}}"></script>
+
+    <script src="{{ asset('assets/vendor/js/menu.js')}}"></script>
+
+    <script src="{{ asset('assets/js/main.js')}}"></script>
+
+    <script async defer src="{{ asset('assets/buttons.js') }}"></script>
+
+
+
+    <script src="{{ asset('customjs/notify.js') }}"></script>
+
+    <script src="{{ asset('customjs/notify.min.js') }}"></script>
+
+    <script src="{{ asset('customjs/alert.js') }}"></script>
+
+    <script src="{{ asset('customjs/duration.js') }}"></script>
+
+    <script src="{{ asset('assets/js/ui-toasts.js') }}"></script>
+
+
+
+    @if ($errors->has('success'))
+
+        <script>
+
+            success_msg("{{ $errors->first('success') }}")
+
+        </script>
+
+    @endif
+
+    @if ($errors->has('error'))
+
+        <script>
+
+            danger_msg("{{ $errors->first('error') }}");
+
+        </script>
+
+    @endif
+
+
+
+</body>
+
+
+
+</html>
+
