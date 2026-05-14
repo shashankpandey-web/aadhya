@@ -1,7 +1,9 @@
 <?php
 namespace App\Console\Commands;
+
 use Illuminate\Console\Command;
 use App\Models\Customers;
+use App\Models\Coupon;
 use App\Jobs\SendBirthdayEmail;
 use Carbon\Carbon;
 
@@ -14,17 +16,29 @@ class SendBirthdayEmails extends Command
     {
         $yesterday = Carbon::yesterday()->format('m-d');
 
-        Customers::whereRaw("DATE_FORMAT(date_of_birth, '%m-%d') = ?", [$yesterday])->whereNull('is_delete')->where(['status' => 'Active','type' => 'Customer'])->where('birthday_email_sent', 1)->update(['birthday_email_sent' => 0]);
+        Customers::whereRaw("DATE_FORMAT(date_of_birth, '%m-%d') = ?", [$yesterday])
+            ->whereNull('is_delete')
+            ->where(['status' => 'Active', 'type' => 'Customer'])
+            ->where('birthday_email_sent', 1)
+            ->update(['birthday_email_sent' => 0]);
 
-        $today = Carbon::today()->format('m-d'); // format month-day
+        $today = Carbon::today()->format('m-d');
 
-        // Chunking to handle large datasets efficiently
+        $birthdayCoupon = Coupon::where('is_birthday_offer', 1)
+            ->where('status', 'Active')
+            ->whereNull('is_delete')
+            ->first();
+
+        $discount_percentage = $birthdayCoupon ? (int) $birthdayCoupon->value : 0;
+
         Customers::whereRaw("DATE_FORMAT(date_of_birth, '%m-%d') = ?", [$today])
-            ->where('birthday_email_sent', 0)->whereNull('is_delete')->where(['status' => 'Active','type' => 'Customer'])
-            ->chunk(1000, function ($Customers) {
+            ->where('birthday_email_sent', 0)
+            ->whereNull('is_delete')
+            ->where(['status' => 'Active', 'type' => 'Customer'])
+            ->chunk(1000, function ($Customers) use ($discount_percentage) {
                 foreach ($Customers as $Customer) {
-                    SendBirthdayEmail::dispatch($Customer);
-                    $Customer->birthday_email_sent = 1; 
+                    SendBirthdayEmail::dispatch($Customer, $discount_percentage);
+                    $Customer->birthday_email_sent = 1;
                     $Customer->save();
                 }
             });

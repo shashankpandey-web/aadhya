@@ -31,6 +31,7 @@ use App\Models\AdvisorBanks;
 use App\Models\OrderQuestions;
 use App\Models\AdvisorStripeAccount;
 use App\Models\Logs;
+use App\Models\Coupon;
 
 
 
@@ -75,6 +76,68 @@ class OrderController extends Controller
                 }
 
 
+                // --- Coupon validation (optional) ---
+                $coupon_discount_amount = 0;
+                $applied_coupon_code    = null;
+
+                if ($request->coupon_code) {
+                    $Coupon = Coupon::where('code', trim($request->coupon_code))
+                        ->where('status', 'Active')
+                        ->whereNull('is_delete')
+                        ->first();
+
+                    if (!$Coupon) {
+                        return response()->json(['status' => false, 'message' => 'Invalid coupon code'], 422);
+                        die();
+                    }
+
+                    $now = now()->toDateTimeString();
+
+                    if ($Coupon->start_date && $Coupon->start_date > $now) {
+                        return response()->json(['status' => false, 'message' => 'Coupon is not yet active'], 422);
+                        die();
+                    }
+
+                    if ($Coupon->expiry_date && $Coupon->expiry_date < $now) {
+                        return response()->json(['status' => false, 'message' => 'Coupon has expired'], 422);
+                        die();
+                    }
+
+                    if ($Coupon->usage_limit_per_coupon) {
+                        $total_uses = Orders::where('coupon_code', $Coupon->code)->count();
+                        if ($total_uses >= intval($Coupon->usage_limit_per_coupon)) {
+                            return response()->json(['status' => false, 'message' => 'Coupon usage limit has been reached'], 422);
+                            die();
+                        }
+                    }
+
+                    if ($Coupon->usage_limit_per_user) {
+                        $user_uses = Orders::where('coupon_code', $Coupon->code)
+                            ->where('customer_id', $Auth->id)
+                            ->count();
+                        if ($user_uses >= intval($Coupon->usage_limit_per_user)) {
+                            return response()->json(['status' => false, 'message' => 'You have already used this coupon'], 422);
+                            die();
+                        }
+                    }
+
+                    if ($Coupon->type == 'percentage') {
+                        $coupon_discount_amount = ($required_amount / 100) * floatval($Coupon->value);
+                    } else {
+                        $coupon_discount_amount = floatval($Coupon->value);
+                    }
+
+                    if ($Coupon->maximum_amount && $coupon_discount_amount > floatval($Coupon->maximum_amount)) {
+                        $coupon_discount_amount = floatval($Coupon->maximum_amount);
+                    }
+
+                    $coupon_discount_amount = min($coupon_discount_amount, $required_amount);
+                    $applied_coupon_code    = $Coupon->code;
+                }
+
+                $final_amount = $required_amount - $coupon_discount_amount;
+                // --- End coupon validation ---
+
                 $is_place_order   = false;
                 $total_credite    = 0;
                 $total_debit      = 0;
@@ -90,7 +153,7 @@ class OrderController extends Controller
 
                 if ($total_credite >= 0 && $total_credite >= $total_debit) {
                     $available_amount = $total_credite - $total_debit;
-                    if ($available_amount >= $required_amount) {
+                    if ($available_amount >= $final_amount) {
                         $is_place_order = true;
                     }
                 }
@@ -98,7 +161,7 @@ class OrderController extends Controller
 
                 if ($is_place_order) {
                     $get_availability = Availability::where(['id' => $advisore_availability->availability_id])->first();
-                    if ($get_availability) {              
+                    if ($get_availability) {
 
 
                         $SaveOrder                           = new Orders();
@@ -110,7 +173,9 @@ class OrderController extends Controller
                         $SaveOrder->time                     = $request->time;
                         $SaveOrder->charges_type             = $advisore_availability->charges_type;
                         $SaveOrder->charges                  = $advisore_availability->charges;
-                        $SaveOrder->total_charges            = $required_amount;
+                        $SaveOrder->total_charges            = $final_amount;
+                        $SaveOrder->coupon_code              = $applied_coupon_code;
+                        $SaveOrder->coupon_discount          = $coupon_discount_amount > 0 ? $coupon_discount_amount : null;
                         $SaveOrder->full_name                = isset($request->full_name) ? $request->full_name  : '';
                         $SaveOrder->dob                = isset($request->dob) ? $request->dob  : '';
                         $SaveOrder->gender                = isset($request->gender) ? $request->gender  : '';
@@ -154,17 +219,16 @@ class OrderController extends Controller
 
                         $CustomerWallet                           = new CustomerWallet();
                         $CustomerWallet->customer_id              = $Auth->id;
-                        $CustomerWallet->amount                   = $required_amount;
+                        $CustomerWallet->amount                   = $final_amount;
                         $CustomerWallet->type                     = 'Debit';
                         $CustomerWallet->advisore_availability_id = $request->advisore_availability_id;
                         $CustomerWallet->order_id                 = $SaveOrder->id;
                         $CustomerWallet->save();
 
-                        $amount                                    = $required_amount;
                         $AdvisorWallet                             = new CustomerWallet();
                         $AdvisorWallet->customer_id                = $request->advisore_id;
-                        $AdvisorWallet->total_amount               = $amount;
-                        $resposneData                              = get_calculate_amount($amount);
+                        $AdvisorWallet->total_amount               = $final_amount;
+                        $resposneData                              = get_calculate_amount($final_amount);
                         $AdvisorWallet->admin_commision_percentage = $resposneData['admin_commison_percentage'];
                         $AdvisorWallet->admin_commision_amount     = $resposneData['admin_commison_amount'];
                         $AdvisorWallet->amount                     = $resposneData['advisor_amount'];

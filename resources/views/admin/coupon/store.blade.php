@@ -75,6 +75,16 @@
                         </div>
 
                         <div class="col-md-6">
+                            <div class="form-group mb-3 {{ $errors->has('type') ? 'is-invalid' : '' }}">
+                                <label class="col-form-label">{{ translate('Type') }} <span class="mandatory cls">*</span></label>
+                                <select id="type" name="type" class="form-select single-select">
+                                    <option value="flat" {{ getSelected('flat', $Coupon['type'] ?? 'flat') }}>{{ translate('Flat') }}</option>
+                                    <option value="percentage" {{ getSelected('percentage', $Coupon['type'] ?? 'flat') }}>{{ translate('Percentage') }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
                             <div class="form-group mb-3 ">
                                 <label class="col-form-label">{{ translate('Maximum Discount') }}</label>
                                 <input class="form-control {{ $errors->has('maximum_amount') ? 'is-invalid' : '' }}" name="maximum_amount"
@@ -150,6 +160,23 @@
                                     <option value="Deactive" {{ getSelected('Deactive', $Coupon['status']) }}>
                                         {{ translate('Deactive') }}</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label class="col-form-label d-block">{{ translate('Offer Flags') }}</label>
+                                <div class="form-check form-check-inline mt-1">
+                                    <input class="form-check-input" type="checkbox" id="is_comeback_offer" name="is_comeback_offer" value="1"
+                                        {{ old('is_comeback_offer', $Coupon['is_comeback_offer'] ?? 0) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="is_comeback_offer">{{ translate('Comeback Offer') }}</label>
+                                </div>
+                                <div class="form-check form-check-inline mt-1">
+                                    <input class="form-check-input" type="checkbox" id="is_birthday_offer" name="is_birthday_offer" value="1"
+                                        {{ old('is_birthday_offer', $Coupon['is_birthday_offer'] ?? 0) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="is_birthday_offer">{{ translate('Birthday Offer') }}</label>
+                                </div>
+                                <div class="form-text text-muted">Enable to use this coupon automatically in scheduled jobs.</div>
                             </div>
                         </div>
 
