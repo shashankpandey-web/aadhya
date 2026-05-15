@@ -82,6 +82,11 @@ $leftMenu['coupon']['url'] = route('admin.coupon');
 $leftMenu['coupon']['icon'] = 'tf-icons bx bx-category';
 $leftMenu['coupon']['name'] = 'Coupons';
 
+$leftMenu['monthly_offers']['title'] = translate('Monthly Offers');
+$leftMenu['monthly_offers']['url'] = route('admin.monthly_offers');
+$leftMenu['monthly_offers']['icon'] = 'tf-icons bx bx-calendar-star';
+$leftMenu['monthly_offers']['name'] = 'monthly_offers';
+
 
 $leftMenu['sendnotification']['title'] = translate('Send Notifications');
 $leftMenu['sendnotification']['url'] = route('admin.sendnotification');

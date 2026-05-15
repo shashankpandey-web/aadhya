@@ -402,4 +402,51 @@ class CommonController extends Controller
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
         }
     }
+
+    public function sale_status(Request $request)
+    {
+        $enabled = get_setting_data('enable_twice_monthly_sale', 'content') === 'active';
+
+        if (!$enabled) {
+            return response()->json([
+                'status'  => true,
+                'message' => 'Sale status fetched',
+                'data'    => [
+                    'is_sale_active'       => false,
+                    'discount_percentage'  => 0,
+                    'custom_message'       => '',
+                    'active_period'        => null,
+                ],
+            ]);
+        }
+
+        $today = (int) date('j');
+
+        $p1_start = (int) get_setting_data('sale_period_1_start_day', 'content');
+        $p1_end   = (int) get_setting_data('sale_period_1_end_day',   'content');
+        $p2_start = (int) get_setting_data('sale_period_2_start_day', 'content');
+        $p2_end   = (int) get_setting_data('sale_period_2_end_day',   'content');
+
+        $in_period_1 = $today >= $p1_start && $today <= $p1_end;
+        $in_period_2 = $today >= $p2_start && $today <= $p2_end;
+        $is_active   = $in_period_1 || $in_period_2;
+
+        $active_period = null;
+        if ($in_period_1) {
+            $active_period = ['start_day' => $p1_start, 'end_day' => $p1_end, 'period' => 1];
+        } elseif ($in_period_2) {
+            $active_period = ['start_day' => $p2_start, 'end_day' => $p2_end, 'period' => 2];
+        }
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Sale status fetched',
+            'data'    => [
+                'is_sale_active'      => $is_active,
+                'discount_percentage' => $is_active ? (int) get_setting_data('monthly_sale_discount_percentage', 'content') : 0,
+                'custom_message'      => $is_active ? get_setting_data('sale_custom_message', 'content') : '',
+                'active_period'       => $active_period,
+            ],
+        ]);
+    }
 }

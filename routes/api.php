@@ -86,6 +86,7 @@ Route::middleware(['api'])->group(function () {
 
         /* Common Controller */
 
+        Route::any('/sale-status', [CommonController::class, 'sale_status'])->name('sale_status');
         Route::any('/app-rating', [CommonController::class, 'app_rating'])->name('app_rating');
         Route::any('/contact-us', [CommonController::class, 'contact_us'])->name('contact_us');
         Route::any('/add-advisor-review', [CommonController::class, 'add_advisor_review'])->name('add_advisor_review');

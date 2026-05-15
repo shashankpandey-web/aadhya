@@ -75,12 +75,43 @@ class OrderController extends Controller
                     $required_amount = $minites * $advisore_availability->charges;
                 }
 
+                // --- Monthly sale discount (optional) ---
+                $sale_discount_amount = 0;
+                if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+                    $today = (int) date('j');
+                    $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+                    $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+                    $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+                    $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+                    if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                        $sale_discount_pct    = (int) get_setting_data('monthly_sale_discount_percentage', 'content');
+                        $sale_discount_amount = ($required_amount / 100) * $sale_discount_pct;
+                        $sale_discount_amount = min($sale_discount_amount, $required_amount);
+                    }
+                }
+                // --- End monthly sale discount ---
 
                 // --- Coupon validation (optional) ---
                 $coupon_discount_amount = 0;
                 $applied_coupon_code    = null;
 
                 if ($request->coupon_code) {
+                    $sale_now = false;
+                    if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+                        $today = (int) date('j');
+                        $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+                        $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+                        $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+                        $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+                        if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                            $sale_now = true;
+                        }
+                    }
+                    if ($sale_now) {
+                        return response()->json(['status' => false, 'message' => 'A coupon cannot be applied during an active sale period'], 422);
+                        die();
+                    }
+
                     $Coupon = Coupon::where('code', trim($request->coupon_code))
                         ->where('status', 'Active')
                         ->whereNull('is_delete')
@@ -143,8 +174,8 @@ class OrderController extends Controller
                     $applied_coupon_code    = $Coupon->code;
                 }
 
-                $final_amount = $required_amount - $coupon_discount_amount;
-                // --- End coupon validation ---
+                $final_amount = $required_amount - $coupon_discount_amount - $sale_discount_amount;
+                // --- End coupon/sale discount ---
 
                 $is_place_order   = false;
                 $total_credite    = 0;
@@ -637,6 +668,22 @@ class OrderController extends Controller
         $validation          = Validator::make($request->all(), $rules);
         if ($validation->fails()) {
             return response()->json(['status' => false, 'message' => $validation->errors()->first()], 422);
+            die();
+        }
+
+        $sale_now_validate = false;
+        if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+            $today = (int) date('j');
+            $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+            $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+            $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+            $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+            if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                $sale_now_validate = true;
+            }
+        }
+        if ($sale_now_validate) {
+            return response()->json(['status' => false, 'message' => 'A coupon cannot be applied during an active sale period'], 422);
             die();
         }
 

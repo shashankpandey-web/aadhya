@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\TarotController;
 use App\Http\Controllers\Admin\CustomerreportController;
 use App\Http\Controllers\Admin\CustomersupportController;
 use App\Http\Controllers\Admin\CouponController;
+use App\Http\Controllers\Admin\MonthlyOfferController;
 use App\Http\Controllers\Admin\SendnotificationsController;
 use Illuminate\Support\Facades\Route;
 use Stripe\Stripe;
@@ -175,6 +176,7 @@ Route::group(['middleware' => 'adminAuth'], function () {
 
 	//Settings
 	Route::match(['get', 'post'], '/settings', [SettingController::class, 'settings'])->name('admin.settings');
+	Route::match(['get', 'post'], '/monthly-offers', [MonthlyOfferController::class, 'index'])->name('admin.monthly_offers');
 
 
 	// banner

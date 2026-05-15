@@ -113,6 +113,20 @@ class HomeController extends Controller
             $data = array();
             $Auth = Auth::guard('api')->user();
 
+            $sale_active      = false;
+            $sale_discount_pct = 0;
+            if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+                $today = (int) date('j');
+                $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+                $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+                $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+                $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+                if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                    $sale_active       = true;
+                    $sale_discount_pct = (int) get_setting_data('monthly_sale_discount_percentage', 'content');
+                }
+            }
+
             $setLimit     = config('apiconfig.records_per_page');
             $offset       = 0;
             if ($request->offset) {
@@ -299,6 +313,16 @@ class HomeController extends Controller
                             $availability['charges']         = $CustomerAvailabilities->charges ? $CustomerAvailabilities->charges : 0;
                             $availability['status']       = isset($CustomerAvailabilities->status) ? $CustomerAvailabilities->status : '';
                         }
+
+                        if ($sale_active && floatval($availability['charges']) > 0) {
+                            $original = floatval($availability['charges']);
+                            $discount = ($original / 100) * $sale_discount_pct;
+                            $discount = min($discount, $original);
+                            $availability['original_charges']   = $original;
+                            $availability['discount_amount']    = round($discount, 2);
+                            $availability['discounted_charges'] = round($original - $discount, 2);
+                        }
+
                         $availability_arrs[]        = $availability;
                     }
                     $advisore['availabilities'] = $availability_arrs;
@@ -328,6 +352,21 @@ class HomeController extends Controller
             }
 
             $Auth = Auth::guard('api')->user();
+
+            // Resolve monthly sale status
+            $sale_active_detail      = false;
+            $sale_discount_pct_detail = 0;
+            if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+                $today = (int) date('j');
+                $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+                $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+                $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+                $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+                if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                    $sale_active_detail       = true;
+                    $sale_discount_pct_detail = (int) get_setting_data('monthly_sale_discount_percentage', 'content');
+                }
+            }
 
             // Resolve optional coupon for discounted pricing preview
             $coupon_discount_meta = null;
@@ -468,6 +507,13 @@ class HomeController extends Controller
 
                         $discount = min($discount, $original);
 
+                        $availability['original_charges']   = $original;
+                        $availability['discount_amount']    = round($discount, 2);
+                        $availability['discounted_charges'] = round($original - $discount, 2);
+                    } elseif ($sale_active_detail && floatval($availability['charges']) > 0) {
+                        $original = floatval($availability['charges']);
+                        $discount = ($original / 100) * $sale_discount_pct_detail;
+                        $discount = min($discount, $original);
                         $availability['original_charges']   = $original;
                         $availability['discount_amount']    = round($discount, 2);
                         $availability['discounted_charges'] = round($original - $discount, 2);
