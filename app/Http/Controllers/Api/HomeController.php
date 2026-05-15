@@ -23,6 +23,7 @@ use App\Models\CustomerCategories;
 use App\Models\CustomerWallet;
 use App\Models\CustomerAvailabilities;
 use App\Models\Orders;
+use App\Models\Coupon;
 use App\Models\Logs;
 use Illuminate\Support\Facades\Http;
 use TypeError;
@@ -327,6 +328,43 @@ class HomeController extends Controller
             }
 
             $Auth = Auth::guard('api')->user();
+
+            // Resolve optional coupon for discounted pricing preview
+            $coupon_discount_meta = null;
+            if ($request->coupon_code) {
+                $AppliedCoupon = Coupon::where('code', trim($request->coupon_code))
+                    ->where('status', 'Active')
+                    ->whereNull('is_delete')
+                    ->first();
+
+                if ($AppliedCoupon) {
+                    $now     = now()->toDateTimeString();
+                    $usageOk = true;
+
+                    if ($AppliedCoupon->start_date && $AppliedCoupon->start_date > $now)   $usageOk = false;
+                    if ($AppliedCoupon->expiry_date && $AppliedCoupon->expiry_date < $now)  $usageOk = false;
+
+                    if ($usageOk && $AppliedCoupon->usage_limit_per_coupon) {
+                        $total_uses = Orders::where('coupon_code', $AppliedCoupon->code)->count();
+                        if ($total_uses >= intval($AppliedCoupon->usage_limit_per_coupon)) $usageOk = false;
+                    }
+
+                    if ($usageOk && $AppliedCoupon->usage_limit_per_user) {
+                        $user_uses = Orders::where('coupon_code', $AppliedCoupon->code)
+                            ->where('customer_id', $Auth->id)->count();
+                        if ($user_uses >= intval($AppliedCoupon->usage_limit_per_user)) $usageOk = false;
+                    }
+
+                    if ($usageOk && $AppliedCoupon->is_first_order_offer) {
+                        if (Orders::where('customer_id', $Auth->id)->exists()) $usageOk = false;
+                    }
+
+                    if ($usageOk) {
+                        $coupon_discount_meta = $AppliedCoupon;
+                    }
+                }
+            }
+
             $advisore  = array();
             $get_advisore = Customers::where(['id' => $request->advisore_id, 'status' => 'Active', 'type' => 'Advisor'])->whereNull('is_delete')->first();
             if ($get_advisore) {
@@ -410,11 +448,31 @@ class HomeController extends Controller
 
                     $CustomerAvailabilities = CustomerAvailabilities::where(['availability_id' => $value1->id,'customer_id' => $get_advisore->id])->first();
                     if ($CustomerAvailabilities) {
-                        $availability['id']              = $CustomerAvailabilities->id;
-                        $availability['charges']         = $CustomerAvailabilities->charges ? $CustomerAvailabilities->charges : 0;
-                        $availability['status']       = isset($CustomerAvailabilities->status) ? $CustomerAvailabilities->status : '';
+                        $availability['id']      = $CustomerAvailabilities->id;
+                        $availability['charges'] = $CustomerAvailabilities->charges ? $CustomerAvailabilities->charges : 0;
+                        $availability['status']  = isset($CustomerAvailabilities->status) ? $CustomerAvailabilities->status : '';
                     }
-                    
+
+                    if ($coupon_discount_meta && floatval($availability['charges']) > 0) {
+                        $original = floatval($availability['charges']);
+
+                        if ($coupon_discount_meta->type == 'percentage') {
+                            $discount = ($original / 100) * floatval($coupon_discount_meta->value);
+                        } else {
+                            $discount = floatval($coupon_discount_meta->value);
+                        }
+
+                        if ($coupon_discount_meta->maximum_amount && $discount > floatval($coupon_discount_meta->maximum_amount)) {
+                            $discount = floatval($coupon_discount_meta->maximum_amount);
+                        }
+
+                        $discount = min($discount, $original);
+
+                        $availability['original_charges']   = $original;
+                        $availability['discount_amount']    = round($discount, 2);
+                        $availability['discounted_charges'] = round($original - $discount, 2);
+                    }
+
                     $availability_arrs[]        = $availability;
                 }
 

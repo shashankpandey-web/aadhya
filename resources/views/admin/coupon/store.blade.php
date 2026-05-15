@@ -176,7 +176,12 @@
                                         {{ old('is_birthday_offer', $Coupon['is_birthday_offer'] ?? 0) ? 'checked' : '' }}>
                                     <label class="form-check-label" for="is_birthday_offer">{{ translate('Birthday Offer') }}</label>
                                 </div>
-                                <div class="form-text text-muted">Enable to use this coupon automatically in scheduled jobs.</div>
+                                <div class="form-check form-check-inline mt-1">
+                                    <input class="form-check-input" type="checkbox" id="is_first_order_offer" name="is_first_order_offer" value="1"
+                                        {{ old('is_first_order_offer', $Coupon['is_first_order_offer'] ?? 0) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="is_first_order_offer">{{ translate('First Time User Offer') }}</label>
+                                </div>
+                                <div class="form-text text-muted">Enable to use this coupon automatically in scheduled jobs. Only one coupon per flag can be active at a time.</div>
                             </div>
                         </div>
 

@@ -38,6 +38,9 @@
                                         @if ($value['is_birthday_offer'])
                                             <span class="badge bg-label-info ms-1">Birthday Offer</span>
                                         @endif
+                                        @if ($value['is_first_order_offer'])
+                                            <span class="badge bg-label-success ms-1">First Time User</span>
+                                        @endif
                                     </td>
                                     <td>{{ $value['code'] }}</td>
                                     <td>{{ $value['value'] }}%</td>

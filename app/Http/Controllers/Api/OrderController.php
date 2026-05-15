@@ -121,6 +121,14 @@ class OrderController extends Controller
                         }
                     }
 
+                    if ($Coupon->is_first_order_offer) {
+                        $prior_orders = Orders::where('customer_id', $Auth->id)->count();
+                        if ($prior_orders > 0) {
+                            return response()->json(['status' => false, 'message' => 'This coupon is only valid for your first reading'], 422);
+                            die();
+                        }
+                    }
+
                     if ($Coupon->type == 'percentage') {
                         $coupon_discount_amount = ($required_amount / 100) * floatval($Coupon->value);
                     } else {
@@ -619,6 +627,79 @@ class OrderController extends Controller
 
     
 
+
+    public function validate_coupon(Request $request)
+    {
+        $Auth = Auth::guard('api')->user();
+
+        $rules               = [];
+        $rules['coupon_code'] = 'required';
+        $validation          = Validator::make($request->all(), $rules);
+        if ($validation->fails()) {
+            return response()->json(['status' => false, 'message' => $validation->errors()->first()], 422);
+            die();
+        }
+
+        $Coupon = Coupon::where('code', trim($request->coupon_code))
+            ->where('status', 'Active')
+            ->whereNull('is_delete')
+            ->first();
+
+        if (!$Coupon) {
+            return response()->json(['status' => false, 'message' => 'Invalid coupon code'], 422);
+            die();
+        }
+
+        $now = now()->toDateTimeString();
+
+        if ($Coupon->start_date && $Coupon->start_date > $now) {
+            return response()->json(['status' => false, 'message' => 'Coupon is not yet active'], 422);
+            die();
+        }
+
+        if ($Coupon->expiry_date && $Coupon->expiry_date < $now) {
+            return response()->json(['status' => false, 'message' => 'Coupon has expired'], 422);
+            die();
+        }
+
+        if ($Coupon->usage_limit_per_coupon) {
+            $total_uses = Orders::where('coupon_code', $Coupon->code)->count();
+            if ($total_uses >= intval($Coupon->usage_limit_per_coupon)) {
+                return response()->json(['status' => false, 'message' => 'Coupon usage limit has been reached'], 422);
+                die();
+            }
+        }
+
+        if ($Coupon->usage_limit_per_user) {
+            $user_uses = Orders::where('coupon_code', $Coupon->code)
+                ->where('customer_id', $Auth->id)
+                ->count();
+            if ($user_uses >= intval($Coupon->usage_limit_per_user)) {
+                return response()->json(['status' => false, 'message' => 'You have already used this coupon'], 422);
+                die();
+            }
+        }
+
+        if ($Coupon->is_first_order_offer) {
+            $prior_orders = Orders::where('customer_id', $Auth->id)->count();
+            if ($prior_orders > 0) {
+                return response()->json(['status' => false, 'message' => 'This coupon is only valid for your first reading'], 422);
+                die();
+            }
+        }
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Coupon applied successfully',
+            'data'    => [
+                'coupon_code'    => $Coupon->code,
+                'type'           => $Coupon->type,
+                'value'          => floatval($Coupon->value),
+                'maximum_amount' => $Coupon->maximum_amount ? floatval($Coupon->maximum_amount) : null,
+            ],
+        ]);
+        die();
+    }
 
     public function transactions(Request $request)
     {

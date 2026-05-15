@@ -91,8 +91,7 @@ Route::middleware(['api'])->group(function () {
         Route::any('/add-advisor-review', [CommonController::class, 'add_advisor_review'])->name('add_advisor_review');
         Route::any('/advisor-reviews', [CommonController::class, 'advisor_reviews'])->name('advisor_reviews');
 
-
-
+        Route::any('/validate-coupon', [OrderController::class, 'validate_coupon'])->name('validate_coupon');
         Route::any('/place-order', [OrderController::class, 'place_order'])->name('place_order');
         Route::any('/place-order-advisor', [OrderController::class, 'place_order_advisor'])->name('place_order_advisor');
         Route::any('/place-extend', [OrderController::class, 'place_extend'])->name('place_extend');
@@ -102,11 +101,8 @@ Route::middleware(['api'])->group(function () {
         Route::any('/order-detail', [OrderController::class, 'order_detail'])->name('order_detail');
         Route::any('/get-adviser-wallet-detail', [OrderController::class, 'get_adviser_wallet_detail'])->name('get_adviser_wallet_detail');
         Route::any('/check-call-wallet-amount', [OrderController::class, 'check_call_wallet'])->name('check_call_wallet');
-
         Route::post('/paypal/create-order', [OrderController::class, 'createPaypalOrder']);
         Route::post('/paypal/capture-order', [OrderController::class, 'capturePaypalOrder']);
-
-       
 
         Route::any('/advisor-home', [AdvisorController::class, 'advisor_home'])->name('advisor_home');
         Route::any('/change-advisor-rates', [AdvisorController::class, 'change_advisor_rates'])->name('change_advisor_rates');
