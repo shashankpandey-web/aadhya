@@ -304,13 +304,15 @@ class OrderController extends Controller
                                 $message->to($data['email'], $data['name'])->subject($data['subject']);
                             });
 
-                            SendOrderReminder::dispatch($SaveOrder, '15-min')->delay(now()->addMinutes(15));
-
-                            SendOrderReminder::dispatch($SaveOrder, '1-hour')->delay(now()->addHour());
-
-                            SendOrderReminder::dispatch($SaveOrder, '6-hour')->delay(now()->addHours(6));
-
-                            SendOrderReminder::dispatch($SaveOrder, '12-hour')->delay(now()->addHours(12));                            
+                            if ($availability_id == config('avaiblityconfig.1_day_delivery')) {
+                                $deliveryTime = now()->addHours(24);
+                                SendOrderReminder::dispatch($SaveOrder, '12-hour-remaining')->delay($deliveryTime->copy()->subHours(12));
+                                SendOrderReminder::dispatch($SaveOrder, '6-hour-remaining')->delay($deliveryTime->copy()->subHours(6));
+                                SendOrderReminder::dispatch($SaveOrder, '1-hour-remaining')->delay($deliveryTime->copy()->subHour());
+                            } else {
+                                $deliveryTime = now()->addHour();
+                                SendOrderReminder::dispatch($SaveOrder, '15-min-remaining')->delay($deliveryTime->copy()->subMinutes(15));
+                            }
                         }
 
                         return response()->json(['status' => true,'order_id' => $order_id, 'message' => 'Order Place Successfully']);

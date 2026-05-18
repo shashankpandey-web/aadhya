@@ -326,10 +326,8 @@ class AdvisorController extends Controller
                 }
 
                 $Customerdetail = Customerdetail::where('customer_id', $get_customer->id)->first();
-                if ($Customerdetail) {
-                    // code...
-                }else{
-                    $Customerdetail = getTableColumn('customer_detail');
+                if (!$Customerdetail) {
+                    $Customerdetail = (object) getTableColumn('customer_detail');
                 }
 
                 return view('admin.advisor.view', compact('common', 'get_customer','customer_category_arr','availability_arrs','Customerdetail'));
