@@ -19,6 +19,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('email:send-birthday')->dailyAt('09:00');
         //$schedule->command('email:send-birthday')->everyMinute();
         $schedule->command('notification:send-long-period-offline')->everyMinute();
+        $schedule->command('notification:send-comeback-offer')->dailyAt('10:00');
+        $schedule->command('notification:send-advisor-offline-reminder')->hourly();
     }
 
     /**

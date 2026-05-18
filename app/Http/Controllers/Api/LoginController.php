@@ -16,6 +16,7 @@ use App\Models\CustomerCategories;
 use App\Models\Availability;
 use App\Models\CustomerAvailabilities;
 use App\Models\Notifications;
+use App\Models\Coupon;
 use App\Models\CustomerWallet;
 use App\Models\User;
 use Mail;
@@ -309,22 +310,61 @@ class LoginController extends Controller
             $customer->type             = $request->user_type;
             $customer->save();
 
-            // MAIL NOTIFICATION
-            $data['subject']     = 'Welcome to Aadya Universe – Your Gateway to Spiritual Clarity';
-            $data['name']  = $customer->full_name;
-            $data['email'] = $customer->email;
+            // First-order coupon — notify new customer if one is active
+            $firstOrderCoupon = Coupon::where('is_first_order_offer', 1)
+                ->where('status', 'Active')
+                ->whereNull('is_delete')
+                ->first();
+
+
+               
+
+
+            if ($firstOrderCoupon) {
+                $couponTitle = "Welcome! Use code {$firstOrderCoupon->code} to get {$firstOrderCoupon->value}% off your first reading.";
+
+                $Notification              = new Notifications();
+                $Notification->customer_id = $customer->id;
+                $Notification->title       = $couponTitle;
+                $Notification->type        = 'first-order-offer';
+                $Notification->save();
+            }
+
+            // Welcome email
+            $data['subject'] = 'Welcome to Aadya Universe – Your Gateway to Spiritual Clarity';
+            $data['name']    = $customer->full_name;
+            $data['email']   = $customer->email;
             Mail::send('email.api.registration', $data, function ($message) use ($data) {
                 $message->to($data['email'], $data['name'])
                     ->subject($data['subject']);
             });
 
+            // First-order coupon email (separate, only if a coupon is active)
+            if ($firstOrderCoupon) {
+                $couponData                        = [];
+                $couponData['name']                = $customer->full_name;
+                $couponData['email']               = $customer->email;
+                $couponData['coupon_code']         = $firstOrderCoupon->code;
+                $couponData['discount_percentage'] = floatval($firstOrderCoupon->value);
+                $couponData['subject']             = 'Your Exclusive ' . floatval($firstOrderCoupon->value) . '% Off – First Reading Offer!';
+                Mail::send('email.first_order_offer', $couponData, function ($message) use ($couponData) {
+                    $message->to($couponData['email'], $couponData['name'])
+                        ->subject($couponData['subject']);
+                });
+            }
+
             $output = [];
-            $output['customer_id']  = $customer->id;
-            $output['password']     = $customer->password;
-            $output['user_type']    = $customer->type;
-            $output['full_name']    = $customer->full_name;
-            $output['email']        = $customer->email;
-            $output['phone_number'] = $customer->phone_number;
+            $output['customer_id']        = $customer->id;
+            $output['password']           = $customer->password;
+            $output['user_type']          = $customer->type;
+            $output['full_name']          = $customer->full_name;
+            $output['email']              = $customer->email;
+            $output['phone_number']       = $customer->phone_number;
+            $output['first_order_coupon'] = $firstOrderCoupon ? [
+                'coupon_code' => $firstOrderCoupon->code,
+                'type'        => $firstOrderCoupon->type,
+                'value'       => floatval($firstOrderCoupon->value),
+            ] : null;
             return response()->json(['status' => true, 'message' => 'Customer Sign Up Successfully', 'data' => $output]);
         } catch (Exception $e) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);

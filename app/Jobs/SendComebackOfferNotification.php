@@ -11,31 +11,33 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Mail;
 
-class SendBirthdayEmail implements ShouldQueue
+class SendComebackOfferNotification implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected $Customer;
+    protected $coupon_code;
     protected $discount_percentage;
 
-    public function __construct(Customers $Customer, $discount_percentage = 0)
+    public function __construct(Customers $Customer, $coupon_code = null, $discount_percentage = 0)
     {
         $this->Customer            = $Customer;
+        $this->coupon_code         = $coupon_code;
         $this->discount_percentage = $discount_percentage;
     }
 
     public function handle()
     {
         try {
-            // Save in-app notification
-            $title = $this->discount_percentage > 0
-                ? "Happy Birthday! You have a {$this->discount_percentage}% discount on Birthday Readings today."
-                : "Happy Birthday! Wishing you a wonderful year ahead.";
+            $title = $this->coupon_code && $this->discount_percentage > 0
+                ? "We miss you! Use code {$this->coupon_code} to get {$this->discount_percentage}% off your next reading."
+                : "We miss you! Come back and book your next reading.";
 
+            // Save in-app notification
             $Notification              = new Notifications();
             $Notification->customer_id = $this->Customer->id;
             $Notification->title       = $title;
-            $Notification->type        = 'birthday-discount';
+            $Notification->type        = 'comeback-offer';
             $Notification->save();
 
             // Send FCM push notification
@@ -43,31 +45,31 @@ class SendBirthdayEmail implements ShouldQueue
                 $request       = new \stdClass();
                 $request->data = '';
                 send_customer_notification(
-                    "Happy Birthday! 🎉",
+                    'We Miss You! 💫',
                     $title,
                     $this->Customer->fcm_token,
                     $request
                 );
             }
 
-            // Send birthday email
-            $email = $this->Customer->email;
-            if ($email) {
+            // Send email
+            if ($this->Customer->email) {
                 $data                        = [];
                 $data['name']                = $this->Customer->full_name;
-                $data['email']               = $email;
+                $data['email']               = $this->Customer->email;
+                $data['coupon_code']         = $this->coupon_code;
                 $data['discount_percentage'] = $this->discount_percentage;
-                $data['subject']             = 'Happy Birthday from Aadya!';
-                $data['template']            = 'email.birthday_wish';
+                $data['subject']             = 'We Miss You – Here\'s a Special Comeback Offer!';
+                $data['template']            = 'email.comeback_offer';
 
                 Mail::send($data['template'], $data, function ($message) use ($data) {
                     $message->to($data['email'], $data['name'])->subject($data['subject']);
                 });
             }
 
-            Log::info("Birthday notification sent to {$this->Customer->full_name} (ID: {$this->Customer->id}), discount: {$this->discount_percentage}%");
+            Log::info("Comeback offer sent to {$this->Customer->full_name} (ID: {$this->Customer->id}), code: {$this->coupon_code}, discount: {$this->discount_percentage}%");
         } catch (\Exception $e) {
-            Log::error("SendBirthdayEmail failed for Customer #{$this->Customer->id}: " . $e->getMessage());
+            Log::error("SendComebackOfferNotification failed for Customer #{$this->Customer->id}: " . $e->getMessage());
         }
     }
 }

@@ -30,7 +30,18 @@
                             @foreach ($getCoupon as $key => $value)
                                 <tr>
                                     <td>{{ $getCoupon->firstItem() + $key }}</td>
-                                    <td>{{ $value['title'] }}</td>
+                                    <td>
+                                        {{ $value['title'] }}
+                                        @if ($value['is_comeback_offer'])
+                                            <span class="badge bg-label-warning ms-1">Comeback Offer</span>
+                                        @endif
+                                        @if ($value['is_birthday_offer'])
+                                            <span class="badge bg-label-info ms-1">Birthday Offer</span>
+                                        @endif
+                                        @if ($value['is_first_order_offer'])
+                                            <span class="badge bg-label-success ms-1">First Time User</span>
+                                        @endif
+                                    </td>
                                     <td>{{ $value['code'] }}</td>
                                     <td>{{ $value['value'] }}%</td>
                                     <td>{!! checkStatus($value['status']) !!}</td>

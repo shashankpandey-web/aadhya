@@ -84,7 +84,22 @@ class CouponController extends Controller
             $Coupon->start_date     = isset($request->start_date) ? $request->start_date.' 00:00:00' : NULL;
             $Coupon->expiry_date    = isset($request->expiry_date) ? $request->expiry_date.' 23:59:59' : NULL;
             $Coupon->status         = $request->status;
+            $Coupon->type                 = $request->type ?? 'flat';
+            $Coupon->is_comeback_offer    = $request->has('is_comeback_offer') ? 1 : 0;
+            $Coupon->is_birthday_offer    = $request->has('is_birthday_offer') ? 1 : 0;
+            $Coupon->is_first_order_offer = $request->has('is_first_order_offer') ? 1 : 0;
             $Coupon->save();
+
+            // Enforce single active flag — clear the flag on all other coupons
+            if ($Coupon->is_comeback_offer) {
+                Coupon::where('id', '!=', $Coupon->id)->update(['is_comeback_offer' => 0]);
+            }
+            if ($Coupon->is_birthday_offer) {
+                Coupon::where('id', '!=', $Coupon->id)->update(['is_birthday_offer' => 0]);
+            }
+            if ($Coupon->is_first_order_offer) {
+                Coupon::where('id', '!=', $Coupon->id)->update(['is_first_order_offer' => 0]);
+            }
             return redirect()->route('admin.coupon')->withErrors([$status => $message]);
         }
       

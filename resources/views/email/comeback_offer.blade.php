@@ -43,7 +43,7 @@
             margin: 15px 0;
         }
 
-        .discount-box {
+        .offer-box {
             background-color: #fff4f7;
             border: 2px dashed #FF3E6C;
             border-radius: 8px;
@@ -52,16 +52,17 @@
             text-align: center;
         }
 
-        .discount-box .discount-value {
+        .offer-box .offer-value {
             font-size: 36px;
             font-weight: bold;
             color: #FF3E6C;
+            letter-spacing: 2px;
         }
 
-        .discount-box .discount-label {
-            font-size: 16px;
+        .offer-box .offer-label {
+            font-size: 14px;
             color: #555;
-            margin-top: 6px;
+            margin-top: 8px;
         }
 
         .email-footer {
@@ -80,22 +81,30 @@
         <!-- Email Header -->
         <tr>
             <td class="email-header">
-                <h1>Happy Birthday! 🎉</h1>
+                <h1>We Miss You! 💫</h1>
             </td>
         </tr>
 
         <!-- Email Body -->
         <tr>
             <td class="email-body">
-                <p>Happy Birthday {{ $name }},</p>
-                <p>We wish you a wonderful year ahead filled with joy and great readings!</p>
+                <p>Hi {{ $name }},</p>
+                <p>It's been a while since your last reading. We'd love to have you back!</p>
 
-                @if (!empty($discount_percentage) && $discount_percentage > 0)
-                <div class="discount-box">
-                    <div class="discount-value">{{ $discount_percentage }}% OFF</div>
-                    <div class="discount-label">Birthday Readings Discount — valid today only!</div>
+                @if (!empty($coupon_code))
+                <div class="offer-box">
+                    <div class="offer-value">{{ $coupon_code }}</div>
+                    <div class="offer-label">
+                        Use this code at checkout
+                        @if (!empty($discount_percentage) && $discount_percentage > 0)
+                            &mdash; <strong>{{ $discount_percentage }}% OFF</strong>
+                        @endif
+                        &nbsp;&middot;&nbsp; Valid for 7 days
+                    </div>
                 </div>
-                <p>As a birthday gift, enjoy <strong>{{ $discount_percentage }}% off</strong> on your Birthday Readings session today. Open the Aadya app to book your session.</p>
+                <p>Open the Aadya app, choose your advisor, and enter the code above to claim your discount.</p>
+                @else
+                <p>Your next reading is waiting — reconnect with your advisor and get the guidance you deserve.</p>
                 @endif
 
                 <br>

@@ -5,11 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Coupon extends Model
+class CouponSentLog extends Model
 {
     use HasFactory;
 
     public $timestamps = true;
-    protected $table   = 'coupon';
+    protected $table   = 'coupon_sent_log';
     protected $guarded = [];
 }

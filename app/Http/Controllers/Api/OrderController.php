@@ -31,6 +31,7 @@ use App\Models\AdvisorBanks;
 use App\Models\OrderQuestions;
 use App\Models\AdvisorStripeAccount;
 use App\Models\Logs;
+use App\Models\Coupon;
 
 
 
@@ -74,6 +75,107 @@ class OrderController extends Controller
                     $required_amount = $minites * $advisore_availability->charges;
                 }
 
+                // --- Monthly sale discount (optional) ---
+                $sale_discount_amount = 0;
+                if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+                    $today = (int) date('j');
+                    $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+                    $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+                    $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+                    $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+                    if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                        $sale_discount_pct    = (int) get_setting_data('monthly_sale_discount_percentage', 'content');
+                        $sale_discount_amount = ($required_amount / 100) * $sale_discount_pct;
+                        $sale_discount_amount = min($sale_discount_amount, $required_amount);
+                    }
+                }
+                // --- End monthly sale discount ---
+
+                // --- Coupon validation (optional) ---
+                $coupon_discount_amount = 0;
+                $applied_coupon_code    = null;
+
+                if ($request->coupon_code) {
+                    $sale_now = false;
+                    if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+                        $today = (int) date('j');
+                        $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+                        $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+                        $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+                        $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+                        if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                            $sale_now = true;
+                        }
+                    }
+                    if ($sale_now) {
+                        return response()->json(['status' => false, 'message' => 'A coupon cannot be applied during an active sale period'], 422);
+                        die();
+                    }
+
+                    $Coupon = Coupon::where('code', trim($request->coupon_code))
+                        ->where('status', 'Active')
+                        ->whereNull('is_delete')
+                        ->first();
+
+                    if (!$Coupon) {
+                        return response()->json(['status' => false, 'message' => 'Invalid coupon code'], 422);
+                        die();
+                    }
+
+                    $now = now()->toDateTimeString();
+
+                    if ($Coupon->start_date && $Coupon->start_date > $now) {
+                        return response()->json(['status' => false, 'message' => 'Coupon is not yet active'], 422);
+                        die();
+                    }
+
+                    if ($Coupon->expiry_date && $Coupon->expiry_date < $now) {
+                        return response()->json(['status' => false, 'message' => 'Coupon has expired'], 422);
+                        die();
+                    }
+
+                    if ($Coupon->usage_limit_per_coupon) {
+                        $total_uses = Orders::where('coupon_code', $Coupon->code)->count();
+                        if ($total_uses >= intval($Coupon->usage_limit_per_coupon)) {
+                            return response()->json(['status' => false, 'message' => 'Coupon usage limit has been reached'], 422);
+                            die();
+                        }
+                    }
+
+                    if ($Coupon->usage_limit_per_user) {
+                        $user_uses = Orders::where('coupon_code', $Coupon->code)
+                            ->where('customer_id', $Auth->id)
+                            ->count();
+                        if ($user_uses >= intval($Coupon->usage_limit_per_user)) {
+                            return response()->json(['status' => false, 'message' => 'You have already used this coupon'], 422);
+                            die();
+                        }
+                    }
+
+                    if ($Coupon->is_first_order_offer) {
+                        $prior_orders = Orders::where('customer_id', $Auth->id)->count();
+                        if ($prior_orders > 0) {
+                            return response()->json(['status' => false, 'message' => 'This coupon is only valid for your first reading'], 422);
+                            die();
+                        }
+                    }
+
+                    if ($Coupon->type == 'percentage') {
+                        $coupon_discount_amount = ($required_amount / 100) * floatval($Coupon->value);
+                    } else {
+                        $coupon_discount_amount = floatval($Coupon->value);
+                    }
+
+                    if ($Coupon->maximum_amount && $coupon_discount_amount > floatval($Coupon->maximum_amount)) {
+                        $coupon_discount_amount = floatval($Coupon->maximum_amount);
+                    }
+
+                    $coupon_discount_amount = min($coupon_discount_amount, $required_amount);
+                    $applied_coupon_code    = $Coupon->code;
+                }
+
+                $final_amount = $required_amount - $coupon_discount_amount - $sale_discount_amount;
+                // --- End coupon/sale discount ---
 
                 $is_place_order   = false;
                 $total_credite    = 0;
@@ -90,7 +192,7 @@ class OrderController extends Controller
 
                 if ($total_credite >= 0 && $total_credite >= $total_debit) {
                     $available_amount = $total_credite - $total_debit;
-                    if ($available_amount >= $required_amount) {
+                    if ($available_amount >= $final_amount) {
                         $is_place_order = true;
                     }
                 }
@@ -98,7 +200,7 @@ class OrderController extends Controller
 
                 if ($is_place_order) {
                     $get_availability = Availability::where(['id' => $advisore_availability->availability_id])->first();
-                    if ($get_availability) {              
+                    if ($get_availability) {
 
 
                         $SaveOrder                           = new Orders();
@@ -110,7 +212,9 @@ class OrderController extends Controller
                         $SaveOrder->time                     = $request->time;
                         $SaveOrder->charges_type             = $advisore_availability->charges_type;
                         $SaveOrder->charges                  = $advisore_availability->charges;
-                        $SaveOrder->total_charges            = $required_amount;
+                        $SaveOrder->total_charges            = $final_amount;
+                        $SaveOrder->coupon_code              = $applied_coupon_code;
+                        $SaveOrder->coupon_discount          = $coupon_discount_amount > 0 ? $coupon_discount_amount : null;
                         $SaveOrder->full_name                = isset($request->full_name) ? $request->full_name  : '';
                         $SaveOrder->dob                = isset($request->dob) ? $request->dob  : '';
                         $SaveOrder->gender                = isset($request->gender) ? $request->gender  : '';
@@ -154,17 +258,16 @@ class OrderController extends Controller
 
                         $CustomerWallet                           = new CustomerWallet();
                         $CustomerWallet->customer_id              = $Auth->id;
-                        $CustomerWallet->amount                   = $required_amount;
+                        $CustomerWallet->amount                   = $final_amount;
                         $CustomerWallet->type                     = 'Debit';
                         $CustomerWallet->advisore_availability_id = $request->advisore_availability_id;
                         $CustomerWallet->order_id                 = $SaveOrder->id;
                         $CustomerWallet->save();
 
-                        $amount                                    = $required_amount;
                         $AdvisorWallet                             = new CustomerWallet();
                         $AdvisorWallet->customer_id                = $request->advisore_id;
-                        $AdvisorWallet->total_amount               = $amount;
-                        $resposneData                              = get_calculate_amount($amount);
+                        $AdvisorWallet->total_amount               = $final_amount;
+                        $resposneData                              = get_calculate_amount($final_amount);
                         $AdvisorWallet->admin_commision_percentage = $resposneData['admin_commison_percentage'];
                         $AdvisorWallet->admin_commision_amount     = $resposneData['admin_commison_amount'];
                         $AdvisorWallet->amount                     = $resposneData['advisor_amount'];
@@ -201,13 +304,15 @@ class OrderController extends Controller
                                 $message->to($data['email'], $data['name'])->subject($data['subject']);
                             });
 
-                            SendOrderReminder::dispatch($SaveOrder, '15-min')->delay(now()->addMinutes(15));
-
-                            SendOrderReminder::dispatch($SaveOrder, '1-hour')->delay(now()->addHour());
-
-                            SendOrderReminder::dispatch($SaveOrder, '6-hour')->delay(now()->addHours(6));
-
-                            SendOrderReminder::dispatch($SaveOrder, '12-hour')->delay(now()->addHours(12));                            
+                            if ($availability_id == config('avaiblityconfig.1_day_delivery')) {
+                                $deliveryTime = now()->addHours(24);
+                                SendOrderReminder::dispatch($SaveOrder, '12-hour-remaining')->delay($deliveryTime->copy()->subHours(12));
+                                SendOrderReminder::dispatch($SaveOrder, '6-hour-remaining')->delay($deliveryTime->copy()->subHours(6));
+                                SendOrderReminder::dispatch($SaveOrder, '1-hour-remaining')->delay($deliveryTime->copy()->subHour());
+                            } else {
+                                $deliveryTime = now()->addHour();
+                                SendOrderReminder::dispatch($SaveOrder, '15-min-remaining')->delay($deliveryTime->copy()->subMinutes(15));
+                            }
                         }
 
                         return response()->json(['status' => true,'order_id' => $order_id, 'message' => 'Order Place Successfully']);
@@ -408,6 +513,22 @@ class OrderController extends Controller
                     $required_amount = $minites * $advisore_availability->charges;
                 }
 
+                // --- Monthly sale discount (optional) ---
+                $extend_sale_discount = 0;
+                if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+                    $today = (int) date('j');
+                    $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+                    $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+                    $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+                    $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+                    if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                        $sale_discount_pct    = (int) get_setting_data('monthly_sale_discount_percentage', 'content');
+                        $extend_sale_discount = ($required_amount / 100) * $sale_discount_pct;
+                        $extend_sale_discount = min($extend_sale_discount, $required_amount);
+                    }
+                }
+                $final_extend_amount = $required_amount - $extend_sale_discount;
+                // --- End monthly sale discount ---
 
                 $is_place_order   = false;
                 $total_credite    = 0;
@@ -424,7 +545,7 @@ class OrderController extends Controller
 
                 if ($total_credite >= 0 && $total_credite >= $total_debit) {
                     $available_amount = $total_credite - $total_debit;
-                    if ($available_amount >= $required_amount) {
+                    if ($available_amount >= $final_extend_amount) {
                         $is_place_order = true;
                     }
                 }
@@ -436,13 +557,13 @@ class OrderController extends Controller
 
                         $CustomerWallet                           = new CustomerWallet();
                         $CustomerWallet->customer_id              = $Auth->id;
-                        $CustomerWallet->amount                   = $required_amount;
+                        $CustomerWallet->amount                   = $final_extend_amount;
                         $CustomerWallet->type                     = 'Debit';
                         $CustomerWallet->advisore_availability_id = $get_order->advisore_availability_id;
                         $CustomerWallet->order_id                 = $order_id;
                         $CustomerWallet->save();
 
-                        $amount                                    = $required_amount;
+                        $amount                                    = $final_extend_amount;
                         $AdvisorWallet                             = new CustomerWallet();
                         $AdvisorWallet->customer_id                = $get_order->advisore_id;
                         $AdvisorWallet->total_amount               = $amount;
@@ -555,6 +676,95 @@ class OrderController extends Controller
 
     
 
+
+    public function validate_coupon(Request $request)
+    {
+        $Auth = Auth::guard('api')->user();
+
+        $rules               = [];
+        $rules['coupon_code'] = 'required';
+        $validation          = Validator::make($request->all(), $rules);
+        if ($validation->fails()) {
+            return response()->json(['status' => false, 'message' => $validation->errors()->first()], 422);
+            die();
+        }
+
+        $sale_now_validate = false;
+        if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+            $today = (int) date('j');
+            $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+            $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+            $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+            $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+            if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                $sale_now_validate = true;
+            }
+        }
+        if ($sale_now_validate) {
+            return response()->json(['status' => false, 'message' => 'A coupon cannot be applied during an active sale period'], 422);
+            die();
+        }
+
+        $Coupon = Coupon::where('code', trim($request->coupon_code))
+            ->where('status', 'Active')
+            ->whereNull('is_delete')
+            ->first();
+
+        if (!$Coupon) {
+            return response()->json(['status' => false, 'message' => 'Invalid coupon code'], 422);
+            die();
+        }
+
+        $now = now()->toDateTimeString();
+
+        if ($Coupon->start_date && $Coupon->start_date > $now) {
+            return response()->json(['status' => false, 'message' => 'Coupon is not yet active'], 422);
+            die();
+        }
+
+        if ($Coupon->expiry_date && $Coupon->expiry_date < $now) {
+            return response()->json(['status' => false, 'message' => 'Coupon has expired'], 422);
+            die();
+        }
+
+        if ($Coupon->usage_limit_per_coupon) {
+            $total_uses = Orders::where('coupon_code', $Coupon->code)->count();
+            if ($total_uses >= intval($Coupon->usage_limit_per_coupon)) {
+                return response()->json(['status' => false, 'message' => 'Coupon usage limit has been reached'], 422);
+                die();
+            }
+        }
+
+        if ($Coupon->usage_limit_per_user) {
+            $user_uses = Orders::where('coupon_code', $Coupon->code)
+                ->where('customer_id', $Auth->id)
+                ->count();
+            if ($user_uses >= intval($Coupon->usage_limit_per_user)) {
+                return response()->json(['status' => false, 'message' => 'You have already used this coupon'], 422);
+                die();
+            }
+        }
+
+        if ($Coupon->is_first_order_offer) {
+            $prior_orders = Orders::where('customer_id', $Auth->id)->count();
+            if ($prior_orders > 0) {
+                return response()->json(['status' => false, 'message' => 'This coupon is only valid for your first reading'], 422);
+                die();
+            }
+        }
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'Coupon applied successfully',
+            'data'    => [
+                'coupon_code'    => $Coupon->code,
+                'type'           => $Coupon->type,
+                'value'          => floatval($Coupon->value),
+                'maximum_amount' => $Coupon->maximum_amount ? floatval($Coupon->maximum_amount) : null,
+            ],
+        ]);
+        die();
+    }
 
     public function transactions(Request $request)
     {
