@@ -511,6 +511,22 @@ class OrderController extends Controller
                     $required_amount = $minites * $advisore_availability->charges;
                 }
 
+                // --- Monthly sale discount (optional) ---
+                $extend_sale_discount = 0;
+                if (get_setting_data('enable_twice_monthly_sale', 'content') === 'active') {
+                    $today = (int) date('j');
+                    $p1s   = (int) get_setting_data('sale_period_1_start_day', 'content');
+                    $p1e   = (int) get_setting_data('sale_period_1_end_day', 'content');
+                    $p2s   = (int) get_setting_data('sale_period_2_start_day', 'content');
+                    $p2e   = (int) get_setting_data('sale_period_2_end_day', 'content');
+                    if (($today >= $p1s && $today <= $p1e) || ($today >= $p2s && $today <= $p2e)) {
+                        $sale_discount_pct    = (int) get_setting_data('monthly_sale_discount_percentage', 'content');
+                        $extend_sale_discount = ($required_amount / 100) * $sale_discount_pct;
+                        $extend_sale_discount = min($extend_sale_discount, $required_amount);
+                    }
+                }
+                $final_extend_amount = $required_amount - $extend_sale_discount;
+                // --- End monthly sale discount ---
 
                 $is_place_order   = false;
                 $total_credite    = 0;
@@ -527,7 +543,7 @@ class OrderController extends Controller
 
                 if ($total_credite >= 0 && $total_credite >= $total_debit) {
                     $available_amount = $total_credite - $total_debit;
-                    if ($available_amount >= $required_amount) {
+                    if ($available_amount >= $final_extend_amount) {
                         $is_place_order = true;
                     }
                 }
@@ -539,13 +555,13 @@ class OrderController extends Controller
 
                         $CustomerWallet                           = new CustomerWallet();
                         $CustomerWallet->customer_id              = $Auth->id;
-                        $CustomerWallet->amount                   = $required_amount;
+                        $CustomerWallet->amount                   = $final_extend_amount;
                         $CustomerWallet->type                     = 'Debit';
                         $CustomerWallet->advisore_availability_id = $get_order->advisore_availability_id;
                         $CustomerWallet->order_id                 = $order_id;
                         $CustomerWallet->save();
 
-                        $amount                                    = $required_amount;
+                        $amount                                    = $final_extend_amount;
                         $AdvisorWallet                             = new CustomerWallet();
                         $AdvisorWallet->customer_id                = $get_order->advisore_id;
                         $AdvisorWallet->total_amount               = $amount;
